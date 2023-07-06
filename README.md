@@ -1,2 +1,2 @@
 # polygon_project
- Interactive Web with Polygon API
+Consolidation of Polygon API and USA Spending API to discover trend and correlation between stock market and government spending
