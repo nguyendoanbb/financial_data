@@ -1,2 +1,4 @@
-.vscode/
+*.json
 env_info/
+usa_spending_api/*.ipynb
+
