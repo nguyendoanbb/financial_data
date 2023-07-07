@@ -10,6 +10,7 @@ url = os.getenv('usaspending_url')
 endpoint = "/api/v2/autocomplete/accounts/aid/"
 
 # create a class to pull data from the USA Spending API
+# table would then be converted to pandas dataframe
 class agency_aid:
     def __init__(self, url, endpoint):
         self.url = url
