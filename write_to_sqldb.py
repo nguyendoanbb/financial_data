@@ -1,3 +1,4 @@
+from sqlite3 import OperationalError
 import psycopg2
 from psycopg2.extras import execute_values
 from dotenv import load_dotenv
@@ -40,7 +41,7 @@ try:
 
 except Exception as error:
     print(error)
-except operationalError as error2:
+except OperationalError as error2:
     print("Check database name, username, and password: ", error2)
 finally:
     if cur is not None:
