@@ -23,7 +23,7 @@ class api_pull:
                 "filters": {
                     "aid": str(i),
                     },
-                    "limit": 500,
+                    "limit": 500
                     }
             response = requests.post(url + endpoint, json=body)
             for key in response.json():
@@ -37,5 +37,3 @@ class api_pull:
         # drop duplicates
         df = df.drop_duplicates()
         return(df)
-    
-
