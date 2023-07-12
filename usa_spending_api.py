@@ -103,9 +103,10 @@ class api_pull:
         print(def_codes)
         return(def_codes)
     
-    def drop_na_reset_index(df):
+    def clean_df(df):
         df = df.dropna(axis=0, how='all')
         df = df.dropna(axis=1, how='all')
+        df = df.drop_duplicates()
         df = df.reset_index(drop=True)
         return(df)
     
@@ -121,30 +122,91 @@ class api_pull:
             response = requests.get(url + endpoint, params=parm)
             
             if response.status_code == 200:
-                all_df = response.json()
-                all_df.pop('page_metadata')
-                all_df = pd.DataFrame.from_dict(all_df, orient='index').transpose() 
-
-                results = all_df.results.apply(pd.Series)
-                results.columns = results.columns.map(str)
-                results_children = pd.DataFrame()
-                for value in results.columns:
-                    results = pd.concat([results.drop([value], axis=1), results[value].apply(pd.Series)], axis=0)
-                results = api_pull.drop_na_reset_index(results)
+                results = pd.json_normalize(response.json(), record_path=["results"])
+                results.pop("children")
                 results["aid"] = aid
-                i = 0
-                for value in results.children:
-                    temp = pd.DataFrame(value)
-                    temp["main_code"] = results.code[i]
-                    results_children = pd.concat([results_children, temp], axis=0)
-                    i += 1
-                results_children = api_pull.drop_na_reset_index(results_children)
+                results["fiscal_year"] = fiscal_year
+
+                results_children = pd.json_normalize(response.json(), record_path=["results", "children"])
                 results_children["aid"] = aid
+                results_children["fiscal_year"] = fiscal_year
+
                 print("Processed AID: ", aid)
             else:
                 print("Processed AID: ", aid, " ---- ", "Error: ", response.status_code)
+
             results_all = pd.concat([results_all, results], axis=0)
             results_children_all = pd.concat([results_children_all, results_children], axis=0)
         return(results_all, results_children_all)
+    
+    def agency_award(aid_list):
+        aid_unique = api_pull.aid_check(aid_list)
+        fiscal_year = int(pd.to_datetime('today').strftime("%Y")) + 1 if int(pd.to_datetime('today').strftime("%m")) > 9 else int(pd.to_datetime('today').strftime("%Y"))
+        awards_all = pd.DataFrame()
+
+        for aid in aid_unique:
+            parm = {'toptier_code': aid, 'fiscal_year': fiscal_year}
+            endpoint = f"/api/v2/agency/{parm.get('toptier_code')}/awards?fiscal_year={parm.get('fiscal_year')}"
+            response = requests.get(url + endpoint, params=parm)
+
+            if response.status_code == 200:
+                awards = pd.json_normalize(response.json())
+                awards.pop("messages")
+                awards["aid"] = aid
+                print("Processed AID: ", aid)
+            else:
+                print("Processed AID: ", aid, " ---- ", "Error: ", response.status_code)
+
+            awards_all = pd.concat([awards_all, awards], axis=0)
+
+        return(awards_all)
+
+    def agency_budget_function(aid_list):
+        aid_unique = api_pull.aid_check(aid_list)
+        fiscal_year = int(pd.to_datetime('today').strftime("%Y")) + 1 if int(pd.to_datetime('today').strftime("%m")) > 9 else int(pd.to_datetime('today').strftime("%Y"))
+        budget_function_all = pd.DataFrame()
+
+        for aid in aid_unique:
+            parm = {'toptier_code': aid, 'fiscal_year': fiscal_year}
+            endpoint = f"/api/v2/agency/{parm.get('toptier_code')}/budget_function"
+            response = requests.get(url + endpoint, params=parm)
+            
+            if response.status_code == 200:
+                budget_function = pd.json_normalize(response.json(), record_path=["results", "children"],
+                                                    meta=["toptier_code", "fiscal_year", ["results", "name"]])
+                print("Processed AID: ", aid)
+            else:
+                print("Processed AID: ", aid, " ---- ", "Error: ", response.status_code)
+            budget_function_all = pd.concat([budget_function_all, budget_function], axis=0)
+        budget_function_all = api_pull.clean_df(budget_function_all)
+        return(budget_function_all)
+    
+    def agency_budgetary_resources(aid_list):
+        aid_unique = api_pull.aid_check(aid_list)
+        budgetary_all = pd.DataFrame()
+
+        for aid in aid_unique:
+            parm = {'toptier_code': aid}
+            endpoint = f"/api/v2/agency/{parm.get('toptier_code')}/budgetary_resources"
+            response = requests.get(url + endpoint, params=parm)
+
+            if response.status_code == 200:
+                budgetary = pd.json_normalize(response.json(), 
+                                              record_path=["agency_data_by_year", "agency_obligation_by_period"],
+                                              meta = ["toptier_code", 
+                                                      ["agency_data_by_year", "fiscal_year"],
+                                                      ["agency_data_by_year", "agency_budgetary_resources"],
+                                                      ["agency_data_by_year", "agency_total_obligated"],
+                                                      ["agency_data_by_year", "total_budgetary_resources"]])
+                print("Processed AID: ", aid)
+            else:
+                print("Processed AID: ", aid, " ---- ", "Error: ", response.status_code)
+            budgetary_all = pd.concat([budgetary_all, budgetary], axis=0)
+            budgetary_all = api_pull.clean_df(budgetary_all)
+        return(budgetary_all)
+    
+
+            
+        
 
     
